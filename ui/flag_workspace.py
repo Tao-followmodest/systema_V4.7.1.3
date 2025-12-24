@@ -27,13 +27,12 @@ else:
         """Flag 任务工作区"""
         def __init__(self, parent=None):
             super().__init__(parent)
-            self.core_widgets = {}  # name, start, target, span, elapsed, countdown 等 QLabel
+            self.core_widgets = {}
             self.pb = None
             self.pb_label = None
             self.run_btn = None
             self.content_text = None
-            self.timer = QTimer(self)  # 用于实时更新进度
-            self.timer.timeout.connect(self.update_progress)
+            self.timer = None  # 先设为 None
 
         def build_ui(self):
             if self.ui_built:
@@ -117,6 +116,10 @@ else:
             main_layout.addWidget(log_group)
 
             main_layout.addStretch()
+
+            # 在 UI 构建完成后再创建 timer
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self.update_progress)
 
         def refresh_ui(self):
             main_window = self.window()

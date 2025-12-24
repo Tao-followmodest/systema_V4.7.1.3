@@ -61,8 +61,10 @@ else:
             layout.addStretch(1)
 
         def start_app(self):
-            """点击开始使用，切换到主界面"""
+            """点击开始使用，通过鸭子类型安全切换到主界面"""
             main_window = self.window()
-            if isinstance(main_window, PersonalDBGUI):
-                main_window.build_ui()  # 直接调用主窗口方法
-                main_window.main_stack.setCurrentWidget(main_window.main_container)
+            # 使用 hasattr 检查方法是否存在，避免显式引用类名导致循环导入
+            if hasattr(main_window, 'build_ui'):
+                main_window.build_ui()
+                if hasattr(main_window, 'main_stack') and hasattr(main_window, 'main_container'):
+                    main_window.main_stack.setCurrentWidget(main_window.main_container)

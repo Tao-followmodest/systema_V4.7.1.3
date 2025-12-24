@@ -7,7 +7,7 @@ Systema 程序唯一入口
 """
 
 import sys
-
+import traceback
 from config import PYQT6_AVAILABLE, get_default_font
 
 if not PYQT6_AVAILABLE:
@@ -29,7 +29,15 @@ def get_qapp():
         app.setFont(font)
     return app
 
+def exception_hook(exctype, value, tb):
+    """自定义全局异常处理，防止 UI 线程崩溃后静默退出"""
+    err_msg = "".join(traceback.format_exception(exctype, value, tb))
+    print("检测到未捕获的异常：\n", err_msg)
+    # 如果此时 QApplication 已启动，可以弹出消息框
+    sys.__excepthook__(exctype, value, tb)
+
 if __name__ == "__main__":
+    sys.excepthook = exception_hook
     app = get_qapp()
     if app:
         window = PersonalDBGUI()

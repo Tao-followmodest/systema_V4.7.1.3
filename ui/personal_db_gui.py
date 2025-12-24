@@ -79,13 +79,25 @@ else:
 
             self.main_stack.setCurrentWidget(self.main_container)
 
-            layout = QHBoxLayout(self.main_container)
+            layout = QHBoxLayout()
+            self.main_container.setLayout(layout)  # 确保布局被正确绑定到容器
             splitter = QSplitter(Qt.Orientation.Horizontal)
             layout.addWidget(splitter)
 
             # 左侧面板
             left_panel = QWidget()
             left_layout = QVBoxLayout(left_panel)
+
+            # 右侧工作区堆栈
+            self.right_stack = QStackedWidget()
+            splitter.addWidget(self.right_stack)
+
+            # 初始化工作区
+            self.workspaces[0] = TableWorkspace(self)
+            self.workspaces[1] = FlagWorkspace(self)
+            self.workspaces[2] = NoteWorkspace(self)
+            for ws in self.workspaces:
+                self.right_stack.addWidget(ws)
 
             # 模式选择（按钮组）
             mode_group = QGroupBox("模式选择")
@@ -129,16 +141,6 @@ else:
 
             splitter.addWidget(left_panel)
 
-            # 右侧工作区堆栈
-            self.right_stack = QStackedWidget()
-            splitter.addWidget(self.right_stack)
-
-            # 初始化工作区
-            self.workspaces[0] = TableWorkspace(self)
-            self.workspaces[1] = FlagWorkspace(self)
-            self.workspaces[2] = NoteWorkspace(self)
-            for ws in self.workspaces:
-                self.right_stack.addWidget(ws)
 
             # 底部操作栏（示例）
             bottom_layout = QHBoxLayout()
@@ -154,7 +156,14 @@ else:
                     g_layout.addWidget(btn)
                 group.setLayout(g_layout)
                 bottom_layout.addWidget(group)
-            main_layout.addLayout(bottom_layout)
+            layout.addLayout(bottom_layout)
+
+            # 初始刷新：确保进入主界面时左侧列表有数据
+            self.refresh_left_list()
+
+            # 默认选中第一个模式（数据记录）
+            self.btn_mode_table.setChecked(True)
+            self.switch_mode(0)
 
             # 状态栏
             self.setStatusBar(QStatusBar())
