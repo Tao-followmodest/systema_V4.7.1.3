@@ -63,5 +63,6 @@ else:
         def start_app(self):
             """点击开始使用，切换到主界面"""
             main_window = self.window()
-            if hasattr(main_window, 'build_ui'):
-                main_window.build_ui()
+            if isinstance(main_window, PersonalDBGUI):
+                main_window.build_ui()  # 直接调用主窗口方法
+                main_window.main_stack.setCurrentWidget(main_window.main_container)

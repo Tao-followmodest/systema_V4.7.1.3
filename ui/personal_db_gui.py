@@ -73,8 +73,9 @@ else:
 
         def build_ui(self):
             """构建主界面"""
-            if self.main_stack.currentWidget() == self.main_container:
-                return  # 已构建
+            if hasattr(self, '_ui_built') and self._ui_built:
+                return
+            self._ui_built = True
 
             self.main_stack.setCurrentWidget(self.main_container)
 
@@ -164,9 +165,10 @@ else:
         def switch_mode(self, mode_index: int):
             if mode_index == self.current_mode:
                 return
+
             self.current_mode = mode_index
 
-            # 同步按钮
+            # 同步模式按钮
             buttons = [self.btn_mode_table, self.btn_mode_flag, self.btn_mode_note]
             buttons[mode_index].setChecked(True)
 
@@ -179,7 +181,7 @@ else:
             # 刷新底部按钮状态
             self.update_bottom_buttons()
 
-            # 刷新当前工作区
+            # 刷新当前工作区（如果还没建 UI，就建）
             ws = self.workspaces[mode_index]
             if not ws.ui_built:
                 ws.build_ui()
