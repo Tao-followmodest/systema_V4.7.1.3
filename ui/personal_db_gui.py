@@ -72,34 +72,25 @@ else:
             self.setup_global_shortcuts()
 
         def build_ui(self):
-            """构建主界面"""
+            """构建主界面：左侧操作区贯通，右侧工作区+底部按钮"""
             if hasattr(self, '_ui_built') and self._ui_built:
                 return
             self._ui_built = True
 
             self.main_stack.setCurrentWidget(self.main_container)
 
-            layout = QHBoxLayout()
-            self.main_container.setLayout(layout)  # 确保布局被正确绑定到容器
-            splitter = QSplitter(Qt.Orientation.Horizontal)
-            layout.addWidget(splitter)
+            # 主布局改为 QHBoxLayout，确保左侧能一通到底
+            main_h_layout = QHBoxLayout(self.main_container)
+            main_h_layout.setContentsMargins(5, 5, 5, 5)
+            main_h_layout.setSpacing(10)
 
-            # 左侧面板
+            # ================= 1. 左侧操作区 (贯通) =================
             left_panel = QWidget()
+            left_panel.setFixedWidth(200)  # 对应绿色框线宽度
             left_layout = QVBoxLayout(left_panel)
+            left_layout.setContentsMargins(0, 0, 0, 0)
 
-            # 右侧工作区堆栈
-            self.right_stack = QStackedWidget()
-            splitter.addWidget(self.right_stack)
-
-            # 初始化工作区
-            self.workspaces[0] = TableWorkspace(self)
-            self.workspaces[1] = FlagWorkspace(self)
-            self.workspaces[2] = NoteWorkspace(self)
-            for ws in self.workspaces:
-                self.right_stack.addWidget(ws)
-
-            # 模式选择（按钮组）
+            # (1) 模式选择
             mode_group = QGroupBox("模式选择")
             mode_layout = QVBoxLayout()
             self.mode_button_group = QButtonGroup(self)
@@ -113,60 +104,102 @@ else:
                 self.mode_button_group.addButton(btn)
             mode_group.setLayout(mode_layout)
             left_layout.addWidget(mode_group)
-            self.mode_button_group.setId(self.btn_mode_table, 0)
-            self.mode_button_group.setId(self.btn_mode_flag, 1)
-            self.mode_button_group.setId(self.btn_mode_note, 2)
-            self.mode_button_group.idClicked.connect(self.switch_mode)
 
-            # 列表导航
+            # (2) 列表导航
             list_group = QGroupBox("列表导航")
-            list_layout = QVBoxLayout()
+            list_nav_layout = QVBoxLayout()
             self.left_list = QListWidget()
             self.left_list.itemClicked.connect(self.on_left_item_clicked)
-            list_layout.addWidget(self.left_list)
-            list_group.setLayout(list_layout)
-            left_layout.addWidget(list_group, stretch=1)
+            list_nav_layout.addWidget(self.left_list)
+            list_group.setLayout(list_nav_layout)
+            left_layout.addWidget(list_group, stretch=1)  # 占据剩余空间
 
-            # 列表操作按钮
-            btn_group = QGroupBox("列表操作")
-            btn_layout = QVBoxLayout()
+            # (3) 列表操作
+            op_group = QGroupBox("列表操作")
+            op_layout = QVBoxLayout()  # 也可以改为 QGridLayout 实现 2x2
             self.btn_rename = QPushButton("重命名当前")
             self.btn_move_up = QPushButton("↑ 上移")
             self.btn_move_down = QPushButton("↓ 下移")
             self.btn_clear = QPushButton("清空当前")
             for btn in (self.btn_rename, self.btn_move_up, self.btn_move_down, self.btn_clear):
-                btn_layout.addWidget(btn)
-            btn_group.setLayout(btn_layout)
-            left_layout.addWidget(btn_group)
+                op_layout.addWidget(btn)
+            op_group.setLayout(op_layout)
+            left_layout.addWidget(op_group)
 
-            splitter.addWidget(left_panel)
+            main_h_layout.addWidget(left_panel)
 
+            # ================= 2. 右侧工作区 (内容 + 底部按钮) =================
+            right_container = QWidget()
+            right_v_layout = QVBoxLayout(right_container)
+            right_v_layout.setContentsMargins(0, 0, 0, 0)
 
-            # 底部操作栏（示例）
-            bottom_layout = QHBoxLayout()
-            self.bottom_groups = {
-                "编辑操作": [QPushButton("进入编辑"), QPushButton("退出编辑")],
-                "状态管理": [QPushButton("标记完成"), QPushButton("标记废止")],
-                "本地存储": [QPushButton("保存到 TXT"), QPushButton("另存为")]
+            # (1) 右侧工作区堆栈 (占据上方)
+            self.right_stack = QStackedWidget()
+            self.workspaces[0] = TableWorkspace(self)
+            self.workspaces[1] = FlagWorkspace(self)
+            self.workspaces[2] = NoteWorkspace(self)
+            for ws in self.workspaces:
+                self.right_stack.addWidget(ws)
+            right_v_layout.addWidget(self.right_stack, stretch=1)
+
+            # (2) 底部按钮栏 (红色框线区域：三组按钮，每组2个上下排列)
+            bottom_bar = QWidget()
+            bottom_bar.setFixedHeight(110)  # 限制高度
+            bottom_h_layout = QHBoxLayout(bottom_bar)
+            bottom_h_layout.setContentsMargins(0, 5, 0, 0)
+
+            # 按钮配置
+            btn_config = {
+                "编辑操作": ["进入编辑", "退出编辑"],
+                "状态管理": ["标记完成", "标记废止"],
+                "本地存储": ["保存数据", "打开目录"]
             }
-            for group_name, buttons in self.bottom_groups.items():
-                group = QGroupBox(group_name)
-                g_layout = QHBoxLayout()
-                for btn in buttons:
-                    g_layout.addWidget(btn)
-                group.setLayout(g_layout)
-                bottom_layout.addWidget(group)
-            layout.addLayout(bottom_layout)
+            self.bottom_groups = {}
 
-            # 初始刷新：确保进入主界面时左侧列表有数据
+            for group_name, btn_names in btn_config.items():
+                group_box = QGroupBox(group_name)
+                group_v_layout = QVBoxLayout(group_box)  # 组内上下排列
+                group_v_layout.setSpacing(2)
+                group_v_layout.setContentsMargins(5, 15, 5, 5)
+
+                self.bottom_groups[group_name] = []
+                for name in btn_names:
+                    btn = QPushButton(name)
+                    btn.setFixedHeight(30)
+                    group_v_layout.addWidget(btn)
+                    self.bottom_groups[group_name].append(btn)
+
+                bottom_h_layout.addWidget(group_box)
+
+            right_v_layout.addWidget(bottom_bar)
+            main_h_layout.addWidget(right_container)
+
+            # 初始化后续逻辑
+            self.mode_button_group.setId(self.btn_mode_table, 0)
+            self.mode_button_group.setId(self.btn_mode_flag, 1)
+            self.mode_button_group.setId(self.btn_mode_note, 2)
+            self.mode_button_group.idClicked.connect(self.switch_mode)
+
+            # 底部按钮信号（Mode 2 使用）
+            self.btn_complete.clicked.connect(
+                lambda: self.workspaces[2].mark_complete() if self.current_mode == 2 else None)
+            self.btn_discard.clicked.connect(
+                lambda: self.workspaces[2].mark_discard() if self.current_mode == 2 else None)
+            self.btn_save_txt.clicked.connect(
+                lambda: self.workspaces[2].export_txt() if self.current_mode == 2 else None)
+            self.btn_save_as.clicked.connect(lambda: self.workspaces[2].export_as() if self.current_mode == 2 else None)
+
+            # 列表操作按钮（已连接到 BaseWorkspace 接口）
+            self.btn_rename.clicked.connect(self.workspaces[self.current_mode].rename_current)
+            self.btn_up.clicked.connect(self.workspaces[self.current_mode].move_up_current)
+            self.btn_down.clicked.connect(self.workspaces[self.current_mode].move_down_current)
+            self.btn_clear.clicked.connect(self.workspaces[self.current_mode].clear_current)
+
             self.refresh_left_list()
-
-            # 默认选中第一个模式（数据记录）
             self.btn_mode_table.setChecked(True)
             self.switch_mode(0)
-
-            # 状态栏
             self.setStatusBar(QStatusBar())
+
 
         def switch_mode(self, mode_index: int):
             if mode_index == self.current_mode:

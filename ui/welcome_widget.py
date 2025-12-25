@@ -61,10 +61,11 @@ else:
             layout.addStretch(1)
 
         def start_app(self):
-            """点击开始使用，通过鸭子类型安全切换到主界面"""
+            """点击开始使用，切换到主界面"""
             main_window = self.window()
-            # 使用 hasattr 检查方法是否存在，避免显式引用类名导致循环导入
+            # 只要父窗口有 build_ui 方法就执行，无需判断具体的类名
             if hasattr(main_window, 'build_ui'):
                 main_window.build_ui()
-                if hasattr(main_window, 'main_stack') and hasattr(main_window, 'main_container'):
+                # 确保 main_stack 和 main_container 存在后再切换
+                if hasattr(main_window, 'main_stack'):
                     main_window.main_stack.setCurrentWidget(main_window.main_container)
