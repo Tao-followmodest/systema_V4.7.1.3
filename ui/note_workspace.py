@@ -307,16 +307,3 @@ else:
                 lines.append(f"废止时间：{format_datetime(note['discarded_at'])}")
             lines.extend(["", "内容：", note.get("content", "")])
             return "\n".join(lines)
-
-        # ===================== 通用操作实现 =====================
-        def rename_current(self):
-            pass  # 后续实现：重命名便签
-
-        def move_up_current(self):
-            pass
-
-        def move_down_current(self):
-            pass
-
-        def clear_current(self):
-            pass

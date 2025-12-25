@@ -172,6 +172,35 @@ else:
 
                 bottom_h_layout.addWidget(group_box)
 
+            # === 重新映射按钮变量名以匹配后续逻辑 ===
+            # 处理编辑操作组
+            if "编辑操作" in self.bottom_groups:
+                self.btn_enter_edit = self.bottom_groups["编辑操作"][0]
+                self.btn_exit_edit = self.bottom_groups["编辑操作"][1]
+
+            # 处理状态管理组
+            if "状态管理" in self.bottom_groups:
+                self.btn_complete = self.bottom_groups["状态管理"][0]
+                self.btn_discard = self.bottom_groups["状态管理"][1]
+
+            # 处理本地存储组
+            if "本地存储" in self.bottom_groups:
+                self.btn_save_txt = self.bottom_groups["本地存储"][0]
+                self.btn_save_as = self.bottom_groups["本地存储"][1]
+
+            # 映射列表操作按钮（这些已经在 self 中定义过，但需要重新指定到左侧面板的按钮上）
+            # 注意：左侧面板的按钮在 build_ui 前半部分已经通过 self.btn_rename 等定义好了，不需要重新映射
+
+            # 连接 Mode 2 专属功能
+            self.btn_enter_edit.clicked.connect(self.enter_edit_mode)
+            self.btn_exit_edit.clicked.connect(self.exit_edit_mode)
+            self.btn_complete.clicked.connect(
+                lambda: self.workspaces[2].mark_complete() if self.current_mode == 2 else None)
+            self.btn_discard.clicked.connect(
+                lambda: self.workspaces[2].mark_discard() if self.current_mode == 2 else None)
+            self.btn_save_txt.clicked.connect(
+                lambda: self.workspaces[2].export_txt() if self.current_mode == 2 else None)
+            self.btn_save_as.clicked.connect(lambda: self.workspaces[2].export_as() if self.current_mode == 2 else None)
             right_v_layout.addWidget(bottom_bar)
             main_h_layout.addWidget(right_container)
 
@@ -180,33 +209,6 @@ else:
             self.mode_button_group.setId(self.btn_mode_flag, 1)
             self.mode_button_group.setId(self.btn_mode_note, 2)
             self.mode_button_group.idClicked.connect(self.switch_mode)
-
-            # ===================== 底部按钮功能连接 =====================
-
-            self.btn_enter_edit.clicked.connect(self.enter_edit_mode)
-            self.btn_exit_edit.clicked.connect(self.exit_edit_mode)
-
-            # 完成 / 废止按钮（Mode 2 专用）
-            self.btn_complete.clicked.connect(
-                lambda: self.workspaces[2].mark_complete() if self.current_mode == 2 else None
-            )
-            self.btn_discard.clicked.connect(
-                lambda: self.workspaces[2].mark_discard() if self.current_mode == 2 else None
-            )
-
-            # 保存到 TXT / 另存为（Mode 2 专用）
-            self.btn_save_txt.clicked.connect(
-                lambda: self.workspaces[2].export_txt() if self.current_mode == 2 else None
-            )
-            self.btn_save_as.clicked.connect(
-                lambda: self.workspaces[2].export_as() if self.current_mode == 2 else None
-            )
-
-            # 列表操作按钮（已连接到 BaseWorkspace 接口）
-            self.btn_rename.clicked.connect(self.workspaces[self.current_mode].rename_current)
-            self.btn_up.clicked.connect(self.workspaces[self.current_mode].move_up_current)
-            self.btn_down.clicked.connect(self.workspaces[self.current_mode].move_down_current)
-            self.btn_clear.clicked.connect(self.workspaces[self.current_mode].clear_current)
 
             self.refresh_left_list()
             self.btn_mode_table.setChecked(True)
@@ -259,8 +261,12 @@ else:
                 self.left_list.setCurrentRow(self.current_flag_index)
             elif self.current_mode == 2:
                 for i, note in enumerate(self.notes):
-                    name = note.get("display_name") or note.get("title") or TIANGAN[i]  # ← 改这里，使用 TIANGAN[i]
-                    item = self.left_list.addItem(name)
+                    # 强制逻辑：如果 display_name 是默认生成的“便签X”，则显示天干
+                    name = note.get("display_name")
+                    if not name or name.startswith("便签"):
+                        name = TIANGAN[i]
+                    item_widget = self.left_list.addItem(name)  # 注意：addItem 返回 None，要分两行写
+                    item = self.left_list.item(self.left_list.count() - 1)
                     if note["status"] != "active":
                         item.setForeground(Qt.GlobalColor.gray)
 
@@ -277,17 +283,17 @@ else:
         def update_bottom_buttons(self):
             mode = self.current_mode
             groups = self.bottom_groups
+            if not groups: return
 
-            if mode == 0:
-                groups["编辑操作"][0].setEnabled(True)
-                groups["编辑操作"][1].setEnabled(True)
-                for btn in groups["状态管理"] + groups["本地存储"]:
-                    btn.setEnabled(False)
-            else:
-                groups["编辑操作"][0].setEnabled(False)
-                groups["编辑操作"][1].setEnabled(False)
-                for btn in groups["状态管理"] + groups["本地存储"]:
-                    btn.setEnabled(True)
+            # 编辑操作按钮：Mode 0 和 Mode 2 都需要启用
+            can_edit = (mode == 0 or mode == 2)
+            groups["编辑操作"][0].setEnabled(can_edit)
+            groups["编辑操作"][1].setEnabled(can_edit)
+
+            # 状态管理和本地存储：仅 Mode 2 启用
+            is_note_mode = (mode == 2)
+            for btn in groups["状态管理"] + groups["本地存储"]:
+                btn.setEnabled(is_note_mode)
 
         def enter_edit_mode(self):
             if self.current_mode == 2:
