@@ -17,7 +17,7 @@ from PyQt6.QtGui import QFont, QTextCursor
 from datetime import datetime
 import os
 
-from config import PYQT6_AVAILABLE
+from config import PYQT6_AVAILABLE,TIANGAN
 from data_utils import save_notes
 from time_utils import format_datetime
 from .base_workspace import BaseWorkspace
@@ -42,6 +42,7 @@ else:
             self.content_text = None
             self.log_label = None
             self.auto_save_timer = None
+            self.edit_locked = True
 
         def build_ui(self):
             if self.ui_built:
@@ -86,6 +87,10 @@ else:
             log_group.setLayout(log_layout)
             layout.addWidget(log_group)
 
+            # note_workspace.py - build_ui() 末尾
+            self.title_entry.setReadOnly(self.edit_locked)
+            self.content_text.setReadOnly(self.edit_locked)
+
         def refresh_ui(self):
             main_window = self.window()
             if not hasattr(main_window, 'notes') or main_window.current_mode != 2:
@@ -95,7 +100,7 @@ else:
             note = main_window.notes[idx]
 
             # 更新标题和内容
-            self.title_entry.setText(note.get("title", note.get("display_name", f"便签{idx+1}")))
+            self.title_entry.setText(note.get("title", note.get("display_name", TIANGAN[main_window.current_note_index])))
             current_content = self.content_text.toPlainText().strip()
             saved_content = note.get("content", "").strip()
             if current_content != saved_content:
@@ -120,6 +125,10 @@ else:
                 self.title_entry.setStyleSheet("color: #888; font-style: italic;")
             else:
                 self.title_entry.setStyleSheet("")
+
+            # 每次刷新时，强制同步锁定状态
+            self.title_entry.setReadOnly(self.edit_locked)
+            self.content_text.setReadOnly(self.edit_locked)
 
         def auto_save_draft(self):
             """500ms 防抖自动保存"""
@@ -158,8 +167,10 @@ else:
         # ===================== 通用操作实现 =====================
         def rename_current(self):
             main_window = self.window()
-            note = main_window.notes[main_window.current_note_index]
-            current_name = note.get("display_name", note.get("title", f"便签{main_window.current_note_index+1}"))
+            idx = main_window.current_note_index
+            note = main_window.notes[idx]
+            default_name = TIANGAN[idx]  # 从 config 导入 TIANGAN
+            current_name = note.get("display_name", default_name)
             new_name, ok = QInputDialog.getText(self, "重命名便签", "新名称：", text=current_name)
             if ok and new_name.strip():
                 note["display_name"] = new_name.strip()
@@ -186,14 +197,36 @@ else:
 
         def clear_current(self):
             main_window = self.window()
-            note = main_window.notes[main_window.current_note_index]
+            idx = main_window.current_note_index
+            note = main_window.notes[idx]
             if QMessageBox.question(self, "清空", "确定清空当前便签内容？") == QMessageBox.Yes:
                 note["title"] = ""
                 note["content"] = ""
+                note["display_name"] = TIANGAN[idx]  # 恢复默认天干
                 note["updated_at"] = datetime.now().isoformat()
                 save_notes(main_window.notes)
                 self.refresh_ui()
+                main_window.refresh_left_list()
                 main_window.statusBar().showMessage("当前便签已清空", 2000)
+
+        # ===================== 编辑操作 =====================
+
+        # note_workspace.py - 新增方法
+        def lock_edit(self):
+            self.edit_locked = True
+            self.title_entry.setReadOnly(True)
+            self.content_text.setReadOnly(True)
+            self.window().statusBar().showMessage("已锁定编辑", 2000)
+
+        def unlock_edit(self):
+            note = self.window().notes[self.window().current_note_index]
+            if note["status"] != "active":
+                QMessageBox.information(self, "提示", "已完成或废止的便签无法编辑")
+                return
+            self.edit_locked = False
+            self.title_entry.setReadOnly(False)
+            self.content_text.setReadOnly(False)
+            self.window().statusBar().showMessage("已解锁编辑，可编辑内容", 2000)
 
         # ===================== 状态管理 =====================
         def mark_complete(self):

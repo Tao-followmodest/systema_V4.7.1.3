@@ -10,11 +10,10 @@ import json
 from pathlib import Path
 import csv
 from datetime import datetime
-
 from config import (
     DATA_DIR, SCENES_FILE, FLAGS_FILE, NOTES_FILE, TABLES_DIR,
     MAX_SCENES, MAX_FLAGS, MAX_NOTES,
-    DIZHI_SCENE, DIZHI_FLAG, ensure_data_dir
+    DIZHI_SCENE, DIZHI_FLAG, TIANGAN,ensure_data_dir
 )
 
 # ===================== 通用工具 =====================
@@ -183,8 +182,8 @@ def load_notes():
     # 补全到 MAX_NOTES 个 Note
     for i in range(MAX_NOTES):
         item = data[i] if i < len(data) else {}
-        default_label = f"便签{i+1}"
-        item.setdefault("display_name", default_label)
+        default_label = TIANGAN[i]  # 使用天干：甲、乙、丙...
+        item.setdefault("display_name", default_label)  # 优先使用天干作为默认显示名
         item.setdefault("title", "")
         item.setdefault("content", "")
         item.setdefault("status", "active")

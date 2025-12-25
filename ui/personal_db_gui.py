@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
-from config import PYQT6_AVAILABLE, ensure_data_dir
+from config import PYQT6_AVAILABLE, ensure_data_dir,TIANGAN,DIZHI_SCENE,DIZHI_FLAG
 from data_utils import load_scenes, load_flags, load_notes, save_scenes, save_flags, save_notes
 from ui.welcome_widget import WelcomeWidget
 from ui.base_workspace import BaseWorkspace
@@ -34,6 +34,7 @@ else:
             super().__init__()
             self.setWindowTitle("Systema V4.7")
             self.resize(1200, 800)
+            self.edit_mode = False  # 默认锁定
 
             # 数据预加载
             ensure_data_dir()
@@ -152,7 +153,7 @@ else:
             btn_config = {
                 "编辑操作": ["进入编辑", "退出编辑"],
                 "状态管理": ["标记完成", "标记废止"],
-                "本地存储": ["保存数据", "打开目录"]
+                "本地存储": ["保存默认", "另存设置"]
             }
             self.bottom_groups = {}
 
@@ -180,14 +181,26 @@ else:
             self.mode_button_group.setId(self.btn_mode_note, 2)
             self.mode_button_group.idClicked.connect(self.switch_mode)
 
-            # 底部按钮信号（Mode 2 使用）
+            # ===================== 底部按钮功能连接 =====================
+
+            self.btn_enter_edit.clicked.connect(self.enter_edit_mode)
+            self.btn_exit_edit.clicked.connect(self.exit_edit_mode)
+
+            # 完成 / 废止按钮（Mode 2 专用）
             self.btn_complete.clicked.connect(
-                lambda: self.workspaces[2].mark_complete() if self.current_mode == 2 else None)
+                lambda: self.workspaces[2].mark_complete() if self.current_mode == 2 else None
+            )
             self.btn_discard.clicked.connect(
-                lambda: self.workspaces[2].mark_discard() if self.current_mode == 2 else None)
+                lambda: self.workspaces[2].mark_discard() if self.current_mode == 2 else None
+            )
+
+            # 保存到 TXT / 另存为（Mode 2 专用）
             self.btn_save_txt.clicked.connect(
-                lambda: self.workspaces[2].export_txt() if self.current_mode == 2 else None)
-            self.btn_save_as.clicked.connect(lambda: self.workspaces[2].export_as() if self.current_mode == 2 else None)
+                lambda: self.workspaces[2].export_txt() if self.current_mode == 2 else None
+            )
+            self.btn_save_as.clicked.connect(
+                lambda: self.workspaces[2].export_as() if self.current_mode == 2 else None
+            )
 
             # 列表操作按钮（已连接到 BaseWorkspace 接口）
             self.btn_rename.clicked.connect(self.workspaces[self.current_mode].rename_current)
@@ -199,7 +212,6 @@ else:
             self.btn_mode_table.setChecked(True)
             self.switch_mode(0)
             self.setStatusBar(QStatusBar())
-
 
         def switch_mode(self, mode_index: int):
             if mode_index == self.current_mode:
@@ -229,6 +241,11 @@ else:
             mode_names = ["数据记录", "Flag 任务", "便签笔记"]
             self.statusBar().showMessage(f"已切换到：{mode_names[mode_index]} 模式")
 
+            # 确保切换便签或模式时恢复锁定
+            if hasattr(self, 'workspaces') and self.workspaces[self.current_mode]:
+                if self.current_mode == 2:
+                    self.workspaces[2].lock_edit()  # 切换时默认锁定
+
         def refresh_left_list(self):
             self.left_list.clear()
             if self.current_mode == 0:
@@ -241,10 +258,11 @@ else:
                     self.left_list.addItem(name)
                 self.left_list.setCurrentRow(self.current_flag_index)
             elif self.current_mode == 2:
-                for note in self.notes:
-                    name = note.get("title", note.get("display_name", "未命名"))
-                    self.left_list.addItem(name)
-                self.left_list.setCurrentRow(self.current_note_index)
+                for i, note in enumerate(self.notes):
+                    name = note.get("display_name") or note.get("title") or TIANGAN[i]  # ← 改这里，使用 TIANGAN[i]
+                    item = self.left_list.addItem(name)
+                    if note["status"] != "active":
+                        item.setForeground(Qt.GlobalColor.gray)
 
         def on_left_item_clicked(self, item):
             idx = self.left_list.row(item)
@@ -270,6 +288,14 @@ else:
                 groups["编辑操作"][1].setEnabled(False)
                 for btn in groups["状态管理"] + groups["本地存储"]:
                     btn.setEnabled(True)
+
+        def enter_edit_mode(self):
+            if self.current_mode == 2:
+                self.workspaces[2].unlock_edit()
+
+        def exit_edit_mode(self):
+            if self.current_mode == 2:
+                self.workspaces[2].lock_edit()
 
         def setup_global_shortcuts(self):
             # Ctrl+C / V / X / A 等全局快捷键（后续完善）
